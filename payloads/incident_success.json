@@ -1,0 +1,14 @@
+{
+  "interface_name": "CRM-to-DataLake",
+  "source_system": "CRM",
+  "target_system": "DataLake",
+  "timestamp": "2026-09-25T12:45:00Z",
+  "error_type": "NONE",
+  "error_message": "",
+  "duration_seconds": 2,
+  "retry_count": 0,
+  "payload_size_mb": 1.1,
+  "previous_failures": 0,
+  "http_status": 200,
+  "environment": "PROD"
+}

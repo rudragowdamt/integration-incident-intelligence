@@ -1,0 +1,14 @@
+{
+  "interface_name": "Order-to-Warehouse",
+  "source_system": "OrderManagement",
+  "target_system": "Warehouse",
+  "timestamp": "2026-09-25T12:15:00Z",
+  "error_type": "PAYLOAD_VALIDATION",
+  "error_message": "Required field customer_id is missing",
+  "duration_seconds": 3,
+  "retry_count": 0,
+  "payload_size_mb": 0.4,
+  "previous_failures": 1,
+  "http_status": 400,
+  "environment": "PROD"
+}

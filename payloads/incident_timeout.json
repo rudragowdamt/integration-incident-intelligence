@@ -1,0 +1,14 @@
+{
+  "interface_name": "SAP-to-Salesforce",
+  "source_system": "SAP",
+  "target_system": "Salesforce",
+  "timestamp": "2026-09-25T10:31:00Z",
+  "error_type": "CONNECTION_TIMEOUT",
+  "error_message": "Connection timed out while calling downstream API",
+  "duration_seconds": 45,
+  "retry_count": 3,
+  "payload_size_mb": 4.2,
+  "previous_failures": 17,
+  "http_status": 504,
+  "environment": "PROD"
+}

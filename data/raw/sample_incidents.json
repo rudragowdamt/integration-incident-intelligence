@@ -1,0 +1,47 @@
+[
+  {
+    "interface_name": "SAP-to-Salesforce",
+    "source_system": "SAP",
+    "target_system": "Salesforce",
+    "timestamp": "2026-09-25T10:31:00Z",
+    "error_type": "CONNECTION_TIMEOUT",
+    "error_message": "Connection timed out while calling downstream API",
+    "duration_seconds": 45,
+    "retry_count": 3,
+    "payload_size_mb": 4.2,
+    "previous_failures": 17,
+    "http_status": 504,
+    "environment": "PROD",
+    "severity": "HIGH"
+  },
+  {
+    "interface_name": "Order-to-ERP",
+    "source_system": "Web",
+    "target_system": "ERP",
+    "timestamp": "2026-09-25T11:02:00Z",
+    "error_type": "AUTHENTICATION",
+    "error_message": "OAuth token rejected by downstream service",
+    "duration_seconds": 5,
+    "retry_count": 1,
+    "payload_size_mb": 0.8,
+    "previous_failures": 2,
+    "http_status": 401,
+    "environment": "PROD",
+    "severity": "MEDIUM"
+  },
+  {
+    "interface_name": "Order-to-Warehouse",
+    "source_system": "OrderManagement",
+    "target_system": "Warehouse",
+    "timestamp": "2026-09-25T12:15:00Z",
+    "error_type": "PAYLOAD_VALIDATION",
+    "error_message": "Required field customer_id is missing",
+    "duration_seconds": 3,
+    "retry_count": 0,
+    "payload_size_mb": 0.4,
+    "previous_failures": 1,
+    "http_status": 400,
+    "environment": "PROD",
+    "severity": "LOW"
+  }
+]

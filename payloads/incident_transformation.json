@@ -1,0 +1,14 @@
+{
+  "interface_name": "CRM-to-DataLake",
+  "source_system": "CRM",
+  "target_system": "DataLake",
+  "timestamp": "2026-09-25T12:30:00Z",
+  "error_type": "TRANSFORMATION",
+  "error_message": "Message transformation failed",
+  "duration_seconds": 8,
+  "retry_count": 1,
+  "payload_size_mb": 1.7,
+  "previous_failures": 4,
+  "http_status": 422,
+  "environment": "UAT"
+}

@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lightweight serverless deployment for Integration Incident Intelligence.
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        ENABLE_BEDROCK: "true"
+        BEDROCK_REGION: "ap-south-1"
+        BEDROCK_MODEL_ID: "amazon.nova-lite-v1:0"
+Resources:
+  IncidentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: IncidentFunction
+      Handler: handler.lambda_handler
+      Policies:
+      - AWSLambdaBasicExecutionRole
+      Events:
+        IncidentApi:
+          Type: Api
+          Properties:
+            Path: /incident
+            Method: post
+    Metadata:
+      SamResourceId: IncidentFunction
+Outputs:
+  IncidentFunctionName:
+    Description: Lambda function name
+    Value:
+      Ref: IncidentFunction
+  IncidentApi:
+    Description: API endpoint
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/incident
