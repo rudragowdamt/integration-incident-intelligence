@@ -49,52 +49,57 @@ example above is an illustration, not a claim that the model will always
 produce a specific result.
 
 ## Architecture
+Incident JSON
+      |
+      v
+API Gateway
+      |
+      v
+AWS Lambda
+      |
+      +----------------------+
+      |                      |
+      v                      |
+ML Severity Classifier       |
+      |                      |
+      v                      |
+Amazon Bedrock               |
+      |                      |
+      v                      |
+Incident Intelligence        |
+      |                      |
+      v                      |
+ServiceNow Client <---- AWS Secrets Manager
+      |
+      v
+ServiceNow Table API
+      |
+      v
+INCxxxxxxx
 
-### Local-first
+CloudWatch
+   ^
+   |
+Lambda
 
-```text
-Synthetic Integration Logs
-          |
-          v
-     CSV / JSON
-          |
-          v
- Feature Engineering
-          |
-          v
- Supervised ML Model
-          |
-          +----------+
-          |          |
-          v          v
-      Evaluation   Prediction
-                       |
-                       v
-                    FastAPI
-```
+## Key Engineering Learnings
 
-### AWS extension — lightweight Lambda deployment
+This project provided hands-on experience across ML, GenAI,
+serverless AWS and enterprise ITSM integration.
 
-```text
-              API Gateway
-                   |
-                   v
-              AWS Lambda
-                   |
-          compact model.json
-                   |
-                   v
-           ML severity result
-                   |
-          +--------+--------+
-          |                 |
-          v                 v
-     next actions       optional Bedrock
-          |                 |
-          +--------+--------+
-                   |
-                   v
-            Incident Report
+Key lessons included:
+
+- Separating ML training dependencies from Lambda inference.
+- Exporting a compact model for serverless deployment.
+- Using ML for measurable classification and GenAI for explanation.
+- Integrating Amazon Bedrock with AWS Lambda.
+- Managing credentials securely with AWS Secrets Manager.
+- Creating and updating ServiceNow incidents through the Table API.
+- Implementing correlation logic to reduce duplicate incidents.
+- Using AWS SAM/CloudFormation for repeatable deployment.
+- Troubleshooting Lambda package-size limitations.
+- Diagnosing runtime configuration and malformed secret JSON.
+- Using CloudWatch and API responses for production-style troubleshooting.
 
 Training dependencies such as NumPy, Pandas and scikit-learn remain outside
 the Lambda package. SAM packages only `lambda/`.
@@ -143,6 +148,24 @@ Before using AWS:
 - Git
 - Optional: AWS CLI
 - Optional: AWS SAM CLI
+
+## Security
+
+No credentials are stored in this repository.
+
+ServiceNow credentials are stored in AWS Secrets Manager.
+
+The Lambda function receives only the secret ARN and retrieves
+the credentials at runtime using IAM permissions.
+
+Never commit:
+
+- ServiceNow passwords
+- AWS access keys
+- AWS secret keys
+- AWS session tokens
+- `.env` files
+- Secrets Manager secret values
 
 ## Local setup
 

@@ -15,3 +15,18 @@ data/processed/*
 .idea/
 .DS_Store
 Thumbs.db
+
+.aws-sam/
+
+# Local/runtime files
+.venv/
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+.aws-sam/
+
+# Secrets
+*.pem
+*.key
+servicenow-secret-temp.json

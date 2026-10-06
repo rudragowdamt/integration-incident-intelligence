@@ -11,7 +11,7 @@ Globals:
       Variables:
         ENABLE_BEDROCK: "true"
         BEDROCK_REGION: "ap-south-1"
-        BEDROCK_MODEL_ID: "arn:aws:bedrock:ap-south-1:620902420632:inference-profile/apac.amazon.nova-lite-v1:0"
+        BEDROCK_MODEL_ID: "To_Be_Filled_with_Actual_Values"
 
 Resources:
   IncidentFunction:
