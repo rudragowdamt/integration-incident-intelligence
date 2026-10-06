@@ -12,6 +12,9 @@ Globals:
         ENABLE_BEDROCK: "true"
         BEDROCK_REGION: "ap-south-1"
         BEDROCK_MODEL_ID: "To_Be_Filled_with_Actual_Values"
+        SERVICENOW_ENABLED: "true"
+        SERVICENOW_MODE: "servicenow"
+        SERVICENOW_SECRET_ARN: "To_Be_Filled_with_Actual_Values"
 
 Resources:
   IncidentFunction:
@@ -23,6 +26,15 @@ Resources:
       Handler: handler.lambda_handler
       Policies:
         - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: "*"
       Events:
         IncidentApi:
           Type: Api

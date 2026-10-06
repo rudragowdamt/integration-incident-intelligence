@@ -15,6 +15,8 @@ import math
 import os
 from pathlib import Path
 
+from servicenow_client import create_or_update_incident
+
 MODEL = json.loads((Path(__file__).parent / "model.json").read_text())
 
 
@@ -168,6 +170,21 @@ def lambda_handler(event, context):
     explanation = _bedrock_explanation(incident, prediction)
     if explanation:
         report["genai_explanation"] = explanation
+
+    # ServiceNow is deliberately invoked after ML + GenAI so the ticket is
+    # enriched with the existing project output. Ticket failure is returned
+    # explicitly without discarding the incident intelligence result.
+    try:
+        report["servicenow"] = create_or_update_incident(
+            incident, prediction, explanation
+        )
+    except Exception as exc:
+        report["servicenow"] = {
+            "enabled": True,
+            "ticket_created": False,
+            "ticket_action": "failed",
+            "error": str(exc),
+        }
 
     return {
         "statusCode": 200,
