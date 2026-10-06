@@ -1,183 +1,556 @@
 # AI-Powered Integration Incident Intelligence
 
-A Git-ready AI/ML learning project that applies supervised machine learning,
-Generative AI concepts, APIs, AWS serverless services, and MLOps to enterprise
-integration incident triage.
+**Enterprise Incident Triage using Machine Learning, Generative AI, AWS Serverless and ServiceNow**
 
-## Business problem
+A hands-on AI engineering project that applies **Machine Learning + Generative AI + AWS + ITSM automation** to a real enterprise integration-support problem.
 
-Integration support teams receive failed transactions and often inspect logs
-manually before deciding severity, likely failure category, and next action.
+The solution accepts an integration failure, predicts incident severity using a supervised ML model, uses Amazon Bedrock to generate an incident explanation and recommended investigation actions, and automatically creates or updates an incident in ServiceNow.
 
-This prototype uses:
+> **Core design principle:**  
+> **ML classifies. GenAI explains. ServiceNow operationalizes.**
 
-- **Supervised ML** for structured severity classification.
-- **Generative AI** for explanation/summarization.
-- **FastAPI** for local model serving.
-- **AWS Lambda** for serverless execution.
-- **Amazon S3** for object storage.
-- **Amazon Bedrock** as an optional GenAI layer.
-- **GitHub Actions** for CI.
-- **MLOps concepts** for versioning, evaluation, monitoring and retraining.
+---
 
-## Example
+## Why I Built This
 
-Input:
+Enterprise integration environments can contain hundreds or thousands of interfaces connecting ERP, CRM, APIs, databases and external systems.
+
+When an interface fails, support engineers typically need to:
+
+- inspect error details and logs;
+- determine severity;
+- identify recurring failure patterns;
+- investigate possible causes;
+- determine the next troubleshooting actions;
+- document the incident;
+- create or update an ITSM ticket.
+
+This project explores how **ML and Generative AI can assist that workflow without replacing human validation**.
+
+The goal is not autonomous incident resolution.
+
+The goal is to make the **first stage of incident triage faster, more consistent and more informative**.
+
+---
+
+# What the Solution Does
+
+An integration incident is submitted as JSON.
+
+The system then:
+
+1. Validates the incident.
+2. Extracts operational features.
+3. Uses a supervised ML model to predict severity.
+4. Returns prediction confidence and class probabilities.
+5. Sends the incident evidence and ML result to Amazon Bedrock.
+6. Generates:
+   - incident summary;
+   - probable root-cause hypothesis;
+   - recommended investigation actions.
+7. Maps the intelligence into a ServiceNow incident.
+8. Searches for an existing correlated active incident.
+9. Creates a new ServiceNow incident or updates the existing one.
+10. Returns the ServiceNow `INC` number to the caller.
+11. Records runtime information through Amazon CloudWatch.
+
+---
+
+# End-to-End Architecture
+
+```text
+                    Integration Incident
+                            |
+                            v
+                      API Gateway
+                            |
+                            v
+                       AWS Lambda
+                            |
+                +-----------+-----------+
+                |                       |
+                v                       |
+        ML Severity Classifier          |
+                |                       |
+                v                       |
+        Severity + Confidence           |
+                |                       |
+                v                       |
+          Amazon Bedrock                |
+                |                       |
+                v                       |
+        Incident Intelligence           |
+        - Incident Summary              |
+        - Probable Root Cause           |
+        - Recommended Actions           |
+                |                       |
+                v                       |
+          ServiceNow Client <------ AWS Secrets Manager
+                |
+                v
+        ServiceNow Table API
+                |
+         +------+------+
+         |             |
+         v             v
+      CREATE         UPDATE
+     Incident       Incident
+         |             |
+         +------+------+
+                |
+                v
+           INCxxxxxxx
+
+AWS Lambda -----------------------> CloudWatch
+```
+
+---
+
+# Technology Stack
+
+| Area | Technology |
+|---|---|
+| Programming | Python |
+| Machine Learning | Supervised multi-class classification |
+| Runtime Model | Compact multinomial logistic regression |
+| Generative AI | Amazon Bedrock |
+| Foundation Model | Amazon Nova Lite |
+| API | Amazon API Gateway |
+| Compute | AWS Lambda |
+| Infrastructure as Code | AWS SAM / CloudFormation |
+| ITSM | ServiceNow Table API |
+| Secret Management | AWS Secrets Manager |
+| Monitoring | Amazon CloudWatch |
+| Local API | FastAPI |
+| Testing | pytest |
+| Version Control | Git / GitHub |
+| CI | GitHub Actions |
+| Object Storage / Learning | Amazon S3 |
+
+---
+
+# Example Incident
 
 ```json
 {
   "interface_name": "SAP-to-Salesforce",
+  "source_system": "SAP",
+  "target_system": "Salesforce",
+  "timestamp": "2026-09-25T10:31:00Z",
   "error_type": "CONNECTION_TIMEOUT",
+  "error_message": "Connection timed out while calling downstream API",
   "duration_seconds": 45,
   "retry_count": 3,
+  "payload_size_mb": 4.2,
   "previous_failures": 17,
-  "http_status": 504
+  "http_status": 504,
+  "environment": "PROD"
 }
 ```
 
-Example interpretation:
+---
+
+# Example ML Result
+
+For an end-to-end test of the above incident, the classifier produced:
 
 ```text
-Severity: HIGH
-Likely category: DOWNSTREAM_CONNECTIVITY
-Pattern: repeated timeout failures
-Suggested action: check downstream endpoint availability and network connectivity
+Severity: CRITICAL
+Confidence: 0.9986
+Model: compact_multinomial_logistic_regression
+Model Version: 1.0.0
 ```
 
-The actual model in this package learns severity from synthetic data. The
-example above is an illustration, not a claim that the model will always
-produce a specific result.
+The model also returns probabilities across the supported severity classes.
 
-## Architecture
-Incident JSON
+> This result is from the learning/demo model trained on synthetic data.  
+> It should not be interpreted as evidence of production model accuracy.
+
+---
+
+# Generative AI Analysis
+
+The incident evidence and ML prediction are passed to Amazon Bedrock.
+
+The GenAI layer generates:
+
+```text
+Incident Summary
+        +
+Probable Root Cause
+        +
+Recommended Investigation Actions
+        +
+Priority Context
+```
+
+For example:
+
+```text
+Incident:
+SAP-to-Salesforce connection timeout
+
+ML Severity:
+CRITICAL
+
+Probable Root Cause:
+The connection to the downstream Salesforce API may have timed out.
+
+Recommended Investigation:
+- Check network connectivity.
+- Check downstream API availability.
+- Review recent HTTP 504 responses.
+- Review retry behavior and related failures.
+```
+
+## Important AI Governance Principle
+
+The system generates a:
+
+> **Probable Root Cause — NOT a confirmed RCA**
+
+Generative AI is used to assist investigation.
+
+A support engineer must validate the evidence before confirming the root cause or performing high-impact remediation.
+
+---
+
+# Why ML + GenAI?
+
+The project deliberately separates structured decision-making from natural-language generation.
+
+```text
+             Incident Evidence
+                    |
+          +---------+---------+
+          |                   |
+          v                   v
+         ML                 GenAI
+          |                   |
+          v                   v
+     Classification       Explanation
+     Severity             Summary
+     Confidence           Probable Cause
+     Probabilities        Recommended Actions
+```
+
+### Machine Learning
+
+ML provides a **structured and measurable prediction**.
+
+It can be evaluated using metrics such as:
+
+- precision;
+- recall;
+- F1 score;
+- confusion matrix;
+- class probabilities.
+
+### Generative AI
+
+GenAI provides **human-readable contextual assistance**.
+
+It is better suited for:
+
+- summarization;
+- explanation;
+- investigation guidance;
+- natural-language incident notes.
+
+This separation makes the solution easier to **test, evaluate and govern**.
+
+---
+
+# ServiceNow Integration
+
+The final stage of the project connects the AI workflow to a real ITSM process.
+
+The Lambda function calls the ServiceNow Table API after ML and Bedrock processing.
+
+```text
+ML Prediction
       |
       v
-API Gateway
+Bedrock Analysis
       |
       v
+ServiceNow Payload
+      |
+      v
+Correlation Check
+      |
+   +--+--+
+   |     |
+   v     v
+Create  Update
+   |     |
+   +--+--+
+      |
+      v
+  INCxxxxxxx
+```
+
+The ServiceNow incident contains information such as:
+
+- interface name;
+- error type;
+- environment;
+- ML severity;
+- ML confidence;
+- model version;
+- GenAI incident summary;
+- probable root cause;
+- recommended investigation actions.
+
+---
+
+# Duplicate Incident Handling
+
+The project creates a deterministic correlation ID using:
+
+```text
+interface_name
+      +
+error_type
+      +
+environment
+```
+
+Before creating a new incident, the ServiceNow client searches for an active incident with the same correlation ID.
+
+```text
+Incident Received
+       |
+       v
+Generate Correlation ID
+       |
+       v
+Search ServiceNow
+       |
+    +--+--+
+    |     |
+   YES    NO
+    |     |
+    v     v
+ Update  Create
+ Existing New Incident
+ Incident
+```
+
+This demonstrates a basic **idempotency/correlation pattern** instead of blindly generating duplicate ITSM incidents.
+
+---
+
+# Security
+
+No ServiceNow password or AWS credential is stored in this repository.
+
+ServiceNow credentials are stored in:
+
+**AWS Secrets Manager**
+
+The deployed workflow follows this pattern:
+
+```text
 AWS Lambda
-      |
-      +----------------------+
-      |                      |
-      v                      |
-ML Severity Classifier       |
-      |                      |
-      v                      |
-Amazon Bedrock               |
-      |                      |
-      v                      |
-Incident Intelligence        |
-      |                      |
-      v                      |
-ServiceNow Client <---- AWS Secrets Manager
-      |
-      v
-ServiceNow Table API
-      |
-      v
+     |
+     | Secret ARN
+     v
+AWS Secrets Manager
+     |
+     v
+ServiceNow Credentials
+     |
+     v
+ServiceNow API
+```
+
+The Lambda function receives only the Secrets Manager ARN and retrieves the credentials at runtime using IAM permissions.
+
+Never commit:
+
+- ServiceNow passwords;
+- AWS access keys;
+- AWS secret access keys;
+- AWS session tokens;
+- `.env` files;
+- Secrets Manager secret values;
+- private keys.
+
+For a production implementation, a dedicated least-privilege ServiceNow integration account should be used.
+
+---
+
+# Project Evolution
+
+This project was deliberately built incrementally.
+
+### V1 — Machine Learning
+
+```text
+Incident
+   ↓
+Feature Engineering
+   ↓
+ML Severity Classification
+```
+
+### V2 — Generative AI
+
+```text
+Incident
+   ↓
+ML Classification
+   ↓
+Amazon Bedrock
+   ↓
+Incident Explanation
+```
+
+### V3 — Enterprise ITSM Automation
+
+```text
+Incident
+   ↓
+API Gateway
+   ↓
+AWS Lambda
+   ↓
+ML Classification
+   ↓
+Amazon Bedrock
+   ↓
+AWS Secrets Manager
+   ↓
+ServiceNow
+   ↓
 INCxxxxxxx
+```
 
-CloudWatch
-   ^
-   |
-Lambda
+This incremental approach made it possible to validate each layer independently before adding the next capability.
 
-## Key Engineering Learnings
+---
 
-This project provided hands-on experience across ML, GenAI,
-serverless AWS and enterprise ITSM integration.
+# Key Engineering Learnings
+
+This project provided hands-on experience across **ML, GenAI, serverless AWS, MLOps and enterprise ITSM integration**.
 
 Key lessons included:
 
-- Separating ML training dependencies from Lambda inference.
-- Exporting a compact model for serverless deployment.
-- Using ML for measurable classification and GenAI for explanation.
-- Integrating Amazon Bedrock with AWS Lambda.
-- Managing credentials securely with AWS Secrets Manager.
-- Creating and updating ServiceNow incidents through the Table API.
-- Implementing correlation logic to reduce duplicate incidents.
-- Using AWS SAM/CloudFormation for repeatable deployment.
-- Troubleshooting Lambda package-size limitations.
-- Diagnosing runtime configuration and malformed secret JSON.
-- Using CloudWatch and API responses for production-style troubleshooting.
+- separating ML training dependencies from inference dependencies;
+- exporting a compact model for serverless inference;
+- using ML for measurable classification and GenAI for explanation;
+- integrating Amazon Bedrock with AWS Lambda;
+- designing prompts that distinguish probable from confirmed root cause;
+- integrating ServiceNow through the Table API;
+- implementing correlation logic to reduce duplicate incidents;
+- storing credentials securely in AWS Secrets Manager;
+- applying IAM permissions to runtime secret retrieval;
+- deploying infrastructure using AWS SAM / CloudFormation;
+- troubleshooting Lambda package-size limitations;
+- diagnosing deployed Lambda environment configuration;
+- troubleshooting malformed Secrets Manager JSON;
+- using CloudWatch and API responses for production-style troubleshooting;
+- validating the complete workflow through Postman.
 
-Training dependencies such as NumPy, Pandas and scikit-learn remain outside
-the Lambda package. SAM packages only `lambda/`.
+---
 
-## Important AWS Lambda deployment fix
+# Important Lambda Packaging Lesson
 
-The Lambda deployment intentionally uses `infrastructure/template.yaml` with:
+One of the most useful engineering lessons from this project involved the AWS Lambda deployment package.
+
+The repository contains the complete ML development environment, including libraries used for training.
+
+Lambda does **not** need those training dependencies.
+
+The SAM deployment therefore intentionally uses:
 
 ```yaml
 CodeUri: ../lambda/
 ```
 
-Do **not** change this to `CodeUri: ../`. The repository contains the full ML
-training stack, while Lambda needs only the lightweight `lambda/` directory.
-The compact deployment model is generated with:
+and **not**:
+
+```yaml
+CodeUri: ../
+```
+
+The Lambda runtime contains only the lightweight inference components.
+
+```text
+Full Repository
+│
+├── NumPy
+├── Pandas
+├── scikit-learn
+├── training code
+├── evaluation code
+│
+└── lambda/
+      ├── handler.py
+      ├── model.json
+      └── servicenow_client.py
+             |
+             v
+       AWS Lambda Package
+```
+
+The compact deployment model is generated using:
 
 ```bash
 python src/export_lambda_model.py
 ```
 
-This avoids packaging NumPy, Pandas, scikit-learn and the local Random Forest
-artifact into Lambda. See `docs/AWS_LAMBDA_DEPLOYMENT.md` for the full recovery
-procedure.
+This separation resolved a real Lambda deployment failure caused by exceeding the AWS unzipped deployment-package size limit.
 
-## Cost-conscious deployment
+---
 
-**Local execution is the recommended starting point and does not require AWS.**
+# Another Real Troubleshooting Lesson
 
-AWS pricing, free-tier eligibility, quotas and service availability vary by
-account, region and current AWS policies. Therefore this project deliberately
-does not promise a zero-cost AWS deployment.
+During the ServiceNow integration, the ML and Bedrock stages worked but no ServiceNow incident was initially created.
 
-Before using AWS:
+Runtime inspection showed:
 
-1. Set a cost/budget alert.
-2. Use a small dataset.
-3. Prefer serverless/on-demand resources.
-4. Avoid an always-on SageMaker endpoint for the first version.
-5. Do not call Bedrock in a loop during development.
-6. Delete test resources when finished.
-7. Never commit credentials or secrets.
+```text
+SERVICENOW_ENABLED=false
+SERVICENOW_MODE=mock
+```
 
-## Prerequisites
+The deployed configuration was corrected to use the real ServiceNow integration.
 
-- Python 3.11+
-- Git
-- Optional: AWS CLI
-- Optional: AWS SAM CLI
+A subsequent request reached ServiceNow processing but returned a JSON parsing error.
 
-## Security
+The root cause was a malformed secret stored in AWS Secrets Manager.
 
-No credentials are stored in this repository.
+The secret was corrected to valid JSON:
 
-ServiceNow credentials are stored in AWS Secrets Manager.
+```json
+{
+  "instance_url": "https://<YOUR_INSTANCE>.service-now.com",
+  "username": "<YOUR_INTEGRATION_USER>",
+  "password": "<STORED_ONLY_IN_SECRETS_MANAGER>"
+}
+```
 
-The Lambda function receives only the secret ARN and retrieves
-the credentials at runtime using IAM permissions.
+No Lambda code change was required.
 
-Never commit:
+This reinforced an important operational lesson:
 
-- ServiceNow passwords
-- AWS access keys
-- AWS secret keys
-- AWS session tokens
-- `.env` files
-- Secrets Manager secret values
+> **When troubleshooting distributed systems, first identify which layer is failing before changing working code.**
 
-## Local setup
+---
 
-### Windows PowerShell
+# Local Setup
+
+## Windows PowerShell
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### Linux/macOS
+## Linux / macOS
 
 ```bash
 python3 -m venv .venv
@@ -185,31 +558,53 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Generate data
+---
+
+# Generate Training Data
 
 ```bash
-python src/data_generator.py --rows 1000
+python src/data_generator.py --rows 1500
 ```
 
-## Train
+The project uses synthetic integration incidents so the complete ML lifecycle can be reproduced without exposing enterprise production data.
+
+---
+
+# Train the Model
 
 ```bash
 python src/train.py
 ```
 
-## Evaluate
+---
+
+# Evaluate
 
 ```bash
 python src/evaluate.py
 ```
 
-## Predict from a payload
+---
+
+# Export the Lambda Model
+
+```bash
+python src/export_lambda_model.py
+```
+
+This generates the compact model representation required by the Lambda runtime.
+
+---
+
+# Run a Local Prediction
 
 ```bash
 python src/predict.py --payload payloads/incident_timeout.json
 ```
 
-## Run the API
+---
+
+# Run the Local API
 
 ```bash
 uvicorn src.api:app --reload
@@ -221,84 +616,189 @@ Then open:
 http://127.0.0.1:8000/docs
 ```
 
-POST a payload to `/predict`.
+Use the Swagger interface to test the local prediction API.
 
-## Run tests
+---
+
+# Run Tests
 
 ```bash
 pytest -q
 ```
 
-## Git
+Tests should be run before every deployment.
+
+---
+
+# AWS Deployment
+
+## Prerequisites
+
+Install and configure:
+
+- AWS CLI;
+- AWS SAM CLI;
+- Python 3.11+;
+- Git.
+
+Verify AWS access:
 
 ```bash
-git init
-git add .
-git commit -m "Initial AI incident intelligence project"
-git branch -M main
-git remote add origin <YOUR_GITHUB_REPOSITORY_URL>
-git push -u origin main
+aws sts get-caller-identity
 ```
 
-## AWS Lambda / SAM deployment
-
-From the repository root:
+Validate the SAM template:
 
 ```bash
-python src/export_lambda_model.py
+sam validate --template-file infrastructure/template.yaml
+```
+
+Verify the Lambda deployment boundary:
+
+```powershell
+Select-String `
+  -Path .\infrastructure\template.yaml `
+  -Pattern "CodeUri"
+```
+
+Expected:
+
+```text
+CodeUri: ../lambda/
+```
+
+---
+
+# Build
+
+```bash
 sam build --template-file infrastructure/template.yaml
+```
+
+Expected:
+
+```text
+Build Succeeded
+```
+
+---
+
+# Deploy
+
+For the first deployment:
+
+```bash
 sam deploy --guided
 ```
 
-The SAM template packages **only `lambda/`**. Do not change `CodeUri: ../lambda/`
-to the repository root. The Lambda deployment deliberately avoids packaging
-NumPy, Pandas, scikit-learn, FastAPI or the local Random Forest artifact.
-
-Bedrock is disabled in the first deployment. Validate Lambda/API Gateway first,
-then enable Bedrock as a separate learning step if desired. See
-`docs/AWS_LAMBDA_DEPLOYMENT.md` for the detailed procedure and cleanup steps.
-
-## S3 example
+For subsequent deployments:
 
 ```bash
-python src/s3_uploader.py \
-  --bucket YOUR_BUCKET \
-  --file payloads/incident_timeout.json \
-  --key incidents/incident_timeout.json
+sam deploy
 ```
 
-## Bedrock
+AWS SAM / CloudFormation manages the serverless infrastructure.
 
-The project contains a prompt contract and an optional Bedrock client.
+---
 
-Set:
+# Bedrock Configuration
+
+The deployed Lambda uses environment configuration similar to:
 
 ```text
-AWS_REGION
-BEDROCK_MODEL_ID
+ENABLE_BEDROCK=true
+BEDROCK_REGION=<AWS_REGION>
+BEDROCK_MODEL_ID=<BEDROCK_MODEL_OR_INFERENCE_PROFILE>
 ```
 
-Only select a model that is available to your AWS account and region. Check
-current Amazon Bedrock documentation and pricing before invoking it.
+Only use models available to your AWS account and region.
 
-## Project structure
+The completed implementation was validated using Amazon Nova Lite through Amazon Bedrock.
+
+---
+
+# ServiceNow Configuration
+
+The Lambda runtime uses:
+
+```text
+SERVICENOW_ENABLED=true
+SERVICENOW_MODE=servicenow
+SERVICENOW_SECRET_ARN=<AWS_SECRETS_MANAGER_ARN>
+```
+
+The actual ServiceNow password must **not** be placed in the SAM template.
+
+Credentials belong in AWS Secrets Manager.
+
+---
+
+# Monitoring
+
+AWS Lambda execution can be monitored using Amazon CloudWatch.
+
+For SAM deployments:
+
+```powershell
+sam logs `
+  --stack-name integration-incident-intelligence-servicenow `
+  --region <AWS_REGION> `
+  --tail
+```
+
+CloudWatch is useful for diagnosing:
+
+- Lambda errors;
+- Bedrock invocation failures;
+- ServiceNow authentication errors;
+- malformed configuration;
+- runtime exceptions.
+
+---
+
+# Cost-Conscious Design
+
+This project deliberately uses a lightweight architecture.
+
+Cost-conscious decisions include:
+
+- serverless Lambda instead of an always-on application server;
+- API Gateway for managed API access;
+- compact ML inference inside Lambda;
+- no always-on SageMaker endpoint;
+- on-demand Amazon Bedrock inference;
+- a lightweight foundation model for incident explanation;
+- small prompts and controlled output sizes;
+- no OpenSearch/vector database for this version;
+- no Bedrock Agent or Knowledge Base;
+- cleanup of experimental AWS resources after testing.
+
+AWS pricing, free-tier eligibility and service availability vary by account, region and current AWS policies.
+
+This project therefore does **not** claim that AWS execution will always be zero-cost.
+
+---
+
+# Project Structure
 
 ```text
 integration-incident-intelligence/
 ├── data/
 │   ├── raw/
-│   │   └── sample_incidents.json
 │   └── processed/
+│
 ├── payloads/
 │   ├── incident_timeout.json
 │   ├── incident_authentication.json
 │   ├── incident_payload.json
 │   ├── incident_transformation.json
 │   └── incident_success.json
+│
 ├── lambda/
 │   ├── handler.py
 │   ├── model.json
-│   └── README.md
+│   └── servicenow_client.py
+│
 ├── src/
 │   ├── data_generator.py
 │   ├── preprocessing.py
@@ -309,60 +809,245 @@ integration-incident-intelligence/
 │   ├── api.py
 │   ├── bedrock_prompt.py
 │   ├── bedrock_client.py
-│   ├── aws_lambda_handler.py
 │   └── s3_uploader.py
+│
 ├── tests/
+│
 ├── infrastructure/
 │   ├── template.yaml
-│   ├── iam-policy-example.json
-│   └── sagemaker/
+│   └── iam-policy-example.json
+│
 ├── docs/
 │   ├── AWS_LAMBDA_DEPLOYMENT.md
 │   ├── LEARNING_GUIDE.md
 │   ├── PROJECT_PLAN.md
 │   ├── GENAI_PROMPT.md
 │   └── ARCHITECTURE.md
+│
+├── SERVICENOW_EXECUTION_GUIDE.md
 ├── .github/workflows/ci.yml
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
+├── samconfig.toml
 ├── Makefile
 ├── LICENSE
 └── CONTRIBUTING.md
 ```
 
-## Production roadmap
+---
 
-The learning prototype can evolve into:
+# MLOps Lifecycle Demonstrated
 
 ```text
-Data
-  ↓
-Validation
-  ↓
-Feature Engineering
-  ↓
+Synthetic Data
+      ↓
+Preprocessing
+      ↓
 Training
-  ↓
+      ↓
 Evaluation
-  ↓
-Model Versioning / Registry
-  ↓
+      ↓
+Model Artifact
+      ↓
+Lambda Export
+      ↓
+Automated Tests
+      ↓
+SAM Build
+      ↓
 Deployment
-  ↓
-Monitoring
-  ↓
-Drift Detection
-  ↓
-Retraining
+      ↓
+Inference
+      ↓
+CloudWatch
+      ↓
+Operational Feedback
 ```
 
-Do not start with Kubernetes, EKS, RAG, vector databases or multi-agent
-systems. First make the small system understandable and testable.
+This is a **compact MLOps implementation**, not a full enterprise ML platform.
 
-## Important limitation
+---
 
-The dataset is synthetic. This is a learning/demo artifact, not a production
-incident automation system. Production use would require real data,
-validation, security controls, observability, model governance, access
-controls, privacy review and human oversight.
+# Production Roadmap
+
+A production implementation could evolve toward:
+
+```text
+Historical Enterprise Incidents
+              ↓
+      Data Validation
+              ↓
+      Feature Engineering
+              ↓
+           Training
+              ↓
+          Evaluation
+              ↓
+      Model Registry
+              ↓
+      CI/CD Approval
+              ↓
+         Deployment
+              ↓
+         Monitoring
+              ↓
+       Drift Detection
+              ↓
+          Retraining
+```
+
+Additional enhancements could include:
+
+- historical labeled enterprise incidents;
+- model registry and model versioning;
+- prompt versioning;
+- drift monitoring;
+- authenticated API access;
+- SQS / Step Functions for resilient orchestration;
+- dead-letter queues and retry handling;
+- dashboards and operational metrics;
+- human feedback capture;
+- ServiceNow least-privilege integration account;
+- structured GenAI output validation;
+- RAG over approved enterprise runbooks;
+- retrieval of similar historical incidents;
+- human-in-the-loop approval.
+
+---
+
+# Future RAG Extension
+
+A logical next step is to ground incident recommendations using approved enterprise support documentation.
+
+```text
+Incident
+   |
+   v
+ML + Bedrock
+   |
+   +----------------------+
+   |                      |
+   v                      v
+Incident Evidence    Enterprise Runbooks
+                          |
+                          v
+                     Vector Search
+                          |
+                          v
+                    Relevant Context
+                          |
+                          v
+                     Grounded GenAI
+                          |
+                          v
+                Recommended Procedure
+```
+
+This would evolve the project from general incident intelligence toward an **enterprise integration support assistant**.
+
+---
+
+# Important Limitations
+
+This is a **learning and portfolio project**, not a production incident-management system.
+
+The dataset is synthetic.
+
+High model accuracy or confidence on synthetic data does not demonstrate production performance.
+
+Production use would require:
+
+- representative historical incident data;
+- independent model validation;
+- security review;
+- authentication and authorization;
+- least-privilege access;
+- privacy and data-retention controls;
+- model and prompt governance;
+- monitoring and alerting;
+- drift detection;
+- resilience and retry mechanisms;
+- human oversight.
+
+AI-generated probable root causes must not be treated as confirmed RCA without supporting operational evidence.
+
+---
+
+# What This Project Demonstrates
+
+This project demonstrates practical experience across:
+
+**Machine Learning**
+- supervised classification;
+- feature engineering;
+- model evaluation;
+- inference;
+- model packaging.
+
+**Generative AI**
+- Amazon Bedrock;
+- prompt design;
+- grounding;
+- hallucination awareness;
+- human-in-the-loop design.
+
+**AWS**
+- API Gateway;
+- Lambda;
+- Bedrock;
+- Secrets Manager;
+- CloudWatch;
+- SAM;
+- CloudFormation;
+- IAM.
+
+**Enterprise Integration**
+- incident triage;
+- API failures;
+- retry patterns;
+- HTTP errors;
+- correlation;
+- downstream-system failures.
+
+**ITSM Automation**
+- ServiceNow Table API;
+- incident creation;
+- incident updates;
+- correlation-based duplicate handling.
+
+**MLOps / Engineering**
+- Git;
+- automated testing;
+- model packaging;
+- infrastructure as code;
+- CI;
+- deployment troubleshooting;
+- observability;
+- cost-conscious architecture.
+
+---
+
+## Final Perspective
+
+The most important part of this project is not any single AWS service or ML algorithm.
+
+It demonstrates how **existing enterprise operational knowledge can be combined with modern AI engineering** to solve a realistic business problem.
+
+The project progressed from:
+
+```text
+Machine Learning
+      ↓
+Generative AI
+      ↓
+Cloud Deployment
+      ↓
+Security
+      ↓
+Enterprise ITSM Integration
+      ↓
+Operational Troubleshooting
+```
+
+That evolution is the core engineering story behind the repository.
